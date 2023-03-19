@@ -12,15 +12,15 @@ import (
 var commands = []*discordgo.ApplicationCommand{
 	{
 		Name:        "hello-maya",
-		Description: "Test command, says hello to Maya.",
+		Description: "Says hello to Maya.",
 	},
 	{
 		Name:        "describe-instances",
-		Description: "Describe all instances manageable by Maya.",
+		Description: "Get a list of all instances manageable by Maya.",
 	},
 	{
 		Name:        "describe-instance-status",
-		Description: "Describe the instance and systems health of an instance.",
+		Description: "Get an instance's reachability and system health status.",
 		Options: []*discordgo.ApplicationCommandOption{
 			{
 				Type:        discordgo.ApplicationCommandOptionString,
