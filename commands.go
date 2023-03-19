@@ -12,11 +12,23 @@ import (
 var commands = []*discordgo.ApplicationCommand{
 	{
 		Name:        "hello-maya",
-		Description: "Test command, says hello to Maya.",
+		Description: "Says hello to Maya.",
 	},
 	{
-		Name:        "get-instances",
-		Description: "Get all instances managable by Maya.",
+		Name:        "describe-instances",
+		Description: "Get a list of all instances manageable by Maya.",
+	},
+	{
+		Name:        "describe-instance-status",
+		Description: "Get an instance's reachability and system health status.",
+		Options: []*discordgo.ApplicationCommandOption{
+			{
+				Type:        discordgo.ApplicationCommandOptionString,
+				Name:        "instance-id",
+				Description: "Instance ID",
+				Required:    true,
+			},
+		},
 	},
 	{
 		Name:        "start-instance",
@@ -49,14 +61,20 @@ var commandHandlers = map[string]func(s *discordgo.Session, i *discordgo.Interac
 		s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
 			Type: discordgo.InteractionResponseChannelMessageWithSource,
 			Data: &discordgo.InteractionResponseData{
-				Content: "Hello.",
+				Content: "Hello, I'm Maya. 👋",
 			},
 		})
 	},
-	"get-instances": func(s *discordgo.Session, i *discordgo.InteractionCreate) {
+	"describe-instances": func(s *discordgo.Session, i *discordgo.InteractionCreate) {
 		describeInstancesOutput, err := describeInstances()
 		if err != nil {
 			fmt.Println(err)
+			s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
+				Type: discordgo.InteractionResponseChannelMessageWithSource,
+				Data: &discordgo.InteractionResponseData{
+					Content: "Could not describe instances.",
+				},
+			})
 			return
 		}
 		instanceList := describeInstancesOutput.Reservations
@@ -82,6 +100,53 @@ var commandHandlers = map[string]func(s *discordgo.Session, i *discordgo.Interac
 			},
 		})
 	},
+	"describe-instance-status": func(s *discordgo.Session, i *discordgo.InteractionCreate) {
+		options := i.ApplicationCommandData().Options
+		optionMap := make(map[string]*discordgo.ApplicationCommandInteractionDataOption, len(options))
+		for _, opt := range options {
+			optionMap[opt.Name] = opt
+		}
+		describeInstanceStatusOutput, err := describeInstanceStatus(optionMap["instance-id"].StringValue())
+		if err != nil {
+			fmt.Println("error calling describeInstanceStatus")
+			return
+		}
+		if len(describeInstanceStatusOutput.InstanceStatuses) != 1 {
+			fmt.Println("No instance found matching the provided ID")
+			s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
+				Type: discordgo.InteractionResponseChannelMessageWithSource,
+				Data: &discordgo.InteractionResponseData{
+					Content: "No status available for `" + optionMap["instance-id"].StringValue() + "`.",
+				},
+			})
+			return
+		}
+		instanceStatus := describeInstanceStatusOutput.InstanceStatuses[0]
+		var results string
+
+		results += "Status for `" + *instanceStatus.InstanceId + "`:"
+		results += "```"
+		results += "State: " + *instanceStatus.InstanceState.Name
+		results += "\n"
+		results += "Instance Reachability: " + *instanceStatus.InstanceStatus.Status
+		results += "\n"
+		if instanceStatus.InstanceStatus.Details[0].ImpairedSince != nil {
+			results += "\tImpaired: " + instanceStatus.InstanceStatus.Details[0].ImpairedSince.GoString()
+			results += "\n"
+		}
+		results += "System Health: " + *instanceStatus.SystemStatus.Status
+		if instanceStatus.SystemStatus.Details[0].ImpairedSince != nil {
+			results += "\n"
+			results += "\tImpaired: " + instanceStatus.SystemStatus.Details[0].ImpairedSince.GoString()
+		}
+		results += "```"
+		s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
+			Type: discordgo.InteractionResponseChannelMessageWithSource,
+			Data: &discordgo.InteractionResponseData{
+				Content: results,
+			},
+		})
+	},
 	"start-instance": func(s *discordgo.Session, i *discordgo.InteractionCreate) {
 		options := i.ApplicationCommandData().Options
 		optionMap := make(map[string]*discordgo.ApplicationCommandInteractionDataOption, len(options))
@@ -91,12 +156,18 @@ var commandHandlers = map[string]func(s *discordgo.Session, i *discordgo.Interac
 		_, err := startInstance(optionMap["instance-id"].StringValue())
 		if err != nil {
 			fmt.Println("error calling startInstance")
+			s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
+				Type: discordgo.InteractionResponseChannelMessageWithSource,
+				Data: &discordgo.InteractionResponseData{
+					Content: "Could not start `" + optionMap["instance-id"].StringValue() + "`.",
+				},
+			})
 			return
 		}
 		s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
 			Type: discordgo.InteractionResponseChannelMessageWithSource,
 			Data: &discordgo.InteractionResponseData{
-				Content: "Starting instance...",
+				Content: "Starting instance `" + optionMap["instance-id"].StringValue() + "`...",
 			},
 		})
 	},
@@ -109,12 +180,18 @@ var commandHandlers = map[string]func(s *discordgo.Session, i *discordgo.Interac
 		_, err := stopInstance(optionMap["instance-id"].StringValue())
 		if err != nil {
 			fmt.Println("error calling stopInstance")
+			s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
+				Type: discordgo.InteractionResponseChannelMessageWithSource,
+				Data: &discordgo.InteractionResponseData{
+					Content: "Could not stop `" + optionMap["instance-id"].StringValue() + "`.",
+				},
+			})
 			return
 		}
 		s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
 			Type: discordgo.InteractionResponseChannelMessageWithSource,
 			Data: &discordgo.InteractionResponseData{
-				Content: "Stopping instance...",
+				Content: "Stopping instance `" + optionMap["instance-id"].StringValue() + "`...",
 			},
 		})
 	},
