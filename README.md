@@ -4,6 +4,9 @@ Maya is web systems control bot that can manage AWS EC2 instance lifecycle throu
 
 Presently, it can list, get status, start, and stop EC2 instances.
 
+![image](https://user-images.githubusercontent.com/17265041/226211204-8530f6a6-36ee-467f-82a4-b964d3d473f0.png)
+
+
 ## Setup
 ### Infrastructure Requirements
 Maya runs as a Go binary on an EC2 instance with the following requirements:
